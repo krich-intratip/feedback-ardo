@@ -15,6 +15,7 @@ let autoSaveConfig = {
 // ========================================
 document.addEventListener('DOMContentLoaded', function() {
     loadAutoSaveConfig();
+    restoreAutoSave();
     updateAutoSaveUI();
 });
 
@@ -127,8 +128,15 @@ async function autoSaveToCSV(record) {
             return;
         }
 
+        // Check if generateCSVContent function exists
+        if (typeof window.generateCSVContent !== 'function') {
+            console.error('generateCSVContent function not found');
+            showToast('เกิดข้อผิดพลาดในการสร้าง CSV', 'error');
+            return;
+        }
+
         // Generate CSV content for all records
-        const csvContent = generateCSVContent();
+        const csvContent = window.generateCSVContent();
 
         // Create filename with timestamp
         const timestamp = new Date().toISOString().split('T')[0];
@@ -200,7 +208,7 @@ function showAutoSaveIndicator(message) {
 // ========================================
 // RESTORE AUTO-SAVE ON PAGE LOAD
 // ========================================
-async function restoreAutoSave() {
+function restoreAutoSave() {
     if (!autoSaveConfig.enabled || !autoSaveConfig.directoryName) {
         return;
     }
@@ -211,14 +219,8 @@ async function restoreAutoSave() {
 
     // Reset to off state
     autoSaveEnabled = false;
+    directoryHandle = null;
     updateAutoSaveUI();
-}
-
-// Call restore on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', restoreAutoSave);
-} else {
-    restoreAutoSave();
 }
 
 // ========================================

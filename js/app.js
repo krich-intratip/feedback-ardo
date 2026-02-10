@@ -74,6 +74,19 @@ function setDefaultDate() {
 }
 
 // ========================================
+// UTILITY FUNCTIONS
+// ========================================
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// ========================================
 // DATA MANAGEMENT
 // ========================================
 function loadData() {
@@ -104,9 +117,10 @@ function deleteRecord(id) {
         'คุณต้องการลบข้อมูลนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้',
         () => {
             feedbackData = feedbackData.filter(item => item.id !== id);
-            saveData();
-            renderRecordsList();
-            showToast('ลบข้อมูลสำเร็จ', 'success');
+            if (saveData()) {
+                showTab('list'); // Re-render to update count
+                showToast('ลบข้อมูลสำเร็จ', 'success');
+            }
         }
     );
 }
@@ -191,9 +205,11 @@ function submitFeedback(event) {
         form.reset();
         setDefaultDate();
 
-        // Trigger auto-save if enabled
+        // Trigger auto-save if enabled (async)
         if (window.autoSaveToCSV) {
-            window.autoSaveToCSV(record);
+            window.autoSaveToCSV(record).catch(err => {
+                console.error('Auto-save error:', err);
+            });
         }
 
         // Scroll to top
@@ -439,10 +455,10 @@ function renderRecordsList() {
 
             return `
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
-                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${createdDate}</td>
-                    <td class="px-3 py-3 text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">${record.metadata.courseName}</td>
-                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${trainingDate}</td>
-                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${record.metadata.location}</td>
+                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${escapeHtml(createdDate)}</td>
+                    <td class="px-3 py-3 text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(record.metadata.courseName)}</td>
+                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${escapeHtml(trainingDate)}</td>
+                    <td class="px-3 py-3 text-xs sm:text-sm text-gray-900 dark:text-gray-100">${escapeHtml(record.metadata.location)}</td>
                     <td class="px-3 py-3 text-center">
                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs sm:text-sm font-bold ${getScoreColorClass(avgScore)}">
                             ${avgScore.toFixed(2)}
@@ -450,11 +466,11 @@ function renderRecordsList() {
                     </td>
                     <td class="px-3 py-3 text-center">
                         <div class="flex justify-center gap-2">
-                            <button onclick="viewRecord('${record.id}')"
+                            <button onclick="viewRecord('${escapeHtml(record.id)}')"
                                     class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs sm:text-sm font-semibold transition-colors duration-200">
                                 👁️ ดู
                             </button>
-                            <button onclick="deleteRecord('${record.id}')"
+                            <button onclick="deleteRecord('${escapeHtml(record.id)}')"
                                     class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs sm:text-sm font-semibold transition-colors duration-200">
                                 🗑️ ลบ
                             </button>
@@ -516,12 +532,12 @@ function viewRecord(id) {
                     <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-4">
                         <h3 class="font-bold text-gray-800 dark:text-white mb-3">📋 ข้อมูลการอบรม</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                            <p class="text-gray-700 dark:text-gray-300"><strong>ชื่อหลักสูตร:</strong> ${record.metadata.courseName}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>วันที่อบรม:</strong> ${trainingDate}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>สถานที่:</strong> ${record.metadata.location}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>รุ่น:</strong> ${record.metadata.batch || '-'}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>หน่วยงาน:</strong> ${record.metadata.department || '-'}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>วันที่บันทึก:</strong> ${createdDate}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>ชื่อหลักสูตร:</strong> ${escapeHtml(record.metadata.courseName)}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>วันที่อบรม:</strong> ${escapeHtml(trainingDate)}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>สถานที่:</strong> ${escapeHtml(record.metadata.location)}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>รุ่น:</strong> ${escapeHtml(record.metadata.batch) || '-'}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>หน่วยงาน:</strong> ${escapeHtml(record.metadata.department) || '-'}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>วันที่บันทึก:</strong> ${escapeHtml(createdDate)}</p>
                         </div>
                     </div>
 
@@ -541,9 +557,9 @@ function viewRecord(id) {
                     <div class="bg-green-50 dark:bg-gray-700 rounded-lg p-4">
                         <h3 class="font-bold text-gray-800 dark:text-white mb-3">💬 ข้อคิดเห็น</h3>
                         <div class="space-y-2 text-sm">
-                            <p class="text-gray-700 dark:text-gray-300"><strong>จุดเด่น:</strong> ${record.openEnded.strengths || '-'}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>ข้อเสนอแนะ:</strong> ${record.openEnded.suggestions || '-'}</p>
-                            <p class="text-gray-700 dark:text-gray-300"><strong>หัวข้อในอนาคต:</strong> ${record.openEnded.futureTopics || '-'}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>จุดเด่น:</strong> ${escapeHtml(record.openEnded.strengths) || '-'}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>ข้อเสนอแนะ:</strong> ${escapeHtml(record.openEnded.suggestions) || '-'}</p>
+                            <p class="text-gray-700 dark:text-gray-300"><strong>หัวข้อในอนาคต:</strong> ${escapeHtml(record.openEnded.futureTopics) || '-'}</p>
                         </div>
                     </div>
                 </div>
@@ -888,9 +904,10 @@ function importJSON(event) {
             const newRecords = validRecords.filter(r => !existingIds.has(r.id));
 
             feedbackData.push(...newRecords);
-            saveData();
-            renderRecordsList();
-            showToast(`Import สำเร็จ ${newRecords.length} รายการ`, 'success');
+            if (saveData()) {
+                showTab('list'); // Re-render with updated count
+                showToast(`Import สำเร็จ ${newRecords.length} รายการ`, 'success');
+            }
 
         } catch (error) {
             showToast('เกิดข้อผิดพลาดในการอ่านไฟล์', 'error');
@@ -965,3 +982,18 @@ function showConfirmModal(title, message, onConfirm) {
         closeModal();
     };
 }
+
+// ========================================
+// EXPORT FUNCTIONS TO GLOBAL SCOPE
+// ========================================
+window.showTab = showTab;
+window.toggleTheme = toggleTheme;
+window.submitFeedback = submitFeedback;
+window.deleteRecord = deleteRecord;
+window.viewRecord = viewRecord;
+window.closeModal = closeModal;
+window.exportJSON = exportJSON;
+window.exportCSV = exportCSV;
+window.importJSON = importJSON;
+window.generateCSVContent = generateCSVContent;
+window.showToast = showToast;

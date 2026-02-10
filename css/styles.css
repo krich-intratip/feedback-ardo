@@ -21,10 +21,8 @@
     --pastel-orange: #4D3F33;
 }
 
-/* Smooth Transitions */
-* {
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
+/* Smooth Transitions - Removed global * selector for better performance */
+/* Transitions are now applied individually via Tailwind classes */
 
 /* ========================================
    Custom Scrollbar
@@ -83,6 +81,11 @@
     100% { transform: rotate(360deg); }
 }
 
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
 .animate-fadeIn {
     animation: fadeIn 0.5s ease-out;
 }
@@ -124,6 +127,11 @@
 .rating-radio:hover {
     border-color: #818cf8;
     transform: scale(1.1);
+}
+
+.rating-radio:focus {
+    outline: 2px solid #818cf8;
+    outline-offset: 2px;
 }
 
 .rating-radio:checked {

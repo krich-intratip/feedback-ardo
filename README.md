@@ -2,7 +2,7 @@
 
 **Training Feedback Management System** - ระบบจัดการแบบประเมินความพึงพอใจในการฝึกอบรมแบบ Offline-first พร้อม Auto-save CSV
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
@@ -269,4 +269,4 @@ MIT License - ใช้งานได้อย่างอิสระ
 
 **🎉 ขอให้ใช้งานระบบได้อย่างมีประสิทธิภาพ!**
 
-*Last Updated: February 10, 2025 | Version 1.0.0*
+*Last Updated: February 10, 2026 | Version 2.0.0*

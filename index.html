@@ -4,10 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบบันทึกความพึงพอใจในการฝึกอบรม</title>
+    <meta name="description" content="Training Feedback Management System - ระบบจัดการแบบประเมินความพึงพอใจในการฝึกอบรมแบบ Offline-first">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📊</text></svg>">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans Thai', 'Inter', 'sans-serif'],
+                        display: ['Inter', 'Noto Sans Thai', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -15,7 +34,7 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 min-h-screen transition-colors duration-300">
+<body>
 
     <!-- Toast Container -->
     <div id="toastContainer"></div>
@@ -26,46 +45,60 @@
         <span id="autosaveText">บันทึกอัตโนมัติแล้ว</span>
     </div>
 
-    <!-- Main Container -->
-    <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
+    <!-- Scroll to Top Button -->
+    <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" aria-label="Scroll to top">
+        ↑
+    </button>
 
-        <!-- Header -->
-        <header class="text-center mb-6 sm:mb-8 animate-fadeIn">
-            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-                <div class="flex-1 hidden sm:block"></div>
-                <h1 class="flex-1 text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent px-4">
-                    📊 ระบบบันทึกความพึงพอใจในการฝึกอบรม
-                </h1>
-                <div class="flex gap-2 sm:gap-4 items-center">
+    <!-- Sticky Navbar -->
+    <nav id="navbar" class="navbar">
+        <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4 max-w-7xl">
+            <div class="flex justify-between items-center gap-3">
+                <!-- Logo / Title -->
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <span class="text-2xl sm:text-3xl animate-float">📊</span>
+                    <div class="min-w-0">
+                        <h1 class="navbar-title text-lg sm:text-xl md:text-2xl truncate">
+                            ระบบบันทึกความพึงพอใจ
+                        </h1>
+                        <p class="text-xs text-[var(--text-tertiary)] hidden sm:block">Training Feedback Management System</p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     <!-- Auto-save Toggle -->
-                    <button onclick="toggleAutoSave()" id="autoSaveToggle"
-                            class="px-3 sm:px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300 text-xs sm:text-sm font-semibold flex items-center gap-2">
+                    <button onclick="toggleAutoSave()" id="autoSaveToggle" class="autosave-btn">
                         <span id="autoSaveIcon">💾</span>
                         <span class="hidden sm:inline" id="autoSaveStatus">Auto-save: OFF</span>
                         <span class="sm:hidden" id="autoSaveStatusMobile">OFF</span>
                     </button>
+
                     <!-- Theme Toggle -->
-                    <button onclick="toggleTheme()" class="p-2 sm:p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110">
-                        <span class="dark:hidden text-xl sm:text-2xl">🌙</span>
-                        <span class="hidden dark:inline text-xl sm:text-2xl">☀️</span>
+                    <button onclick="toggleTheme()" class="theme-toggle" aria-label="Toggle theme">
+                        <span class="dark:hidden icon" id="themeIconLight">🌙</span>
+                        <span class="hidden dark:inline icon" id="themeIconDark">☀️</span>
                     </button>
                 </div>
             </div>
-            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Training Feedback Management System</p>
-        </header>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-7xl">
 
         <!-- Tab Navigation -->
-        <nav class="mb-6 sm:mb-8 animate-fadeIn">
-            <div class="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg p-1 sm:p-2 flex flex-col sm:flex-row gap-2">
-                <button onclick="showTab('form')" id="tab-form" class="tab-button flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 tab-active bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm sm:text-base">
+        <nav class="mb-6 sm:mb-8 animate-fadeInUp delay-1">
+            <div class="tab-nav">
+                <button onclick="showTab('form')" id="tab-form" class="tab-button tab-active">
                     <span class="hidden sm:inline">📝 กรอกแบบประเมิน</span>
                     <span class="sm:hidden">📝 กรอก</span>
                 </button>
-                <button onclick="showTab('list')" id="tab-list" class="tab-button flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm sm:text-base">
+                <button onclick="showTab('list')" id="tab-list" class="tab-button">
                     <span class="hidden sm:inline">📋 รายการผลประเมิน</span>
                     <span class="sm:hidden">📋 รายการ</span>
                 </button>
-                <button onclick="showTab('summary')" id="tab-summary" class="tab-button flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm sm:text-base">
+                <button onclick="showTab('summary')" id="tab-summary" class="tab-button">
                     <span class="hidden sm:inline">📈 สรุปผลประเมิน</span>
                     <span class="sm:hidden">📈 สรุป</span>
                 </button>
@@ -79,15 +112,11 @@
     </div>
 
     <!-- Footer -->
-    <footer class="mt-16 pb-8 text-center text-gray-600 dark:text-gray-400 animate-fadeIn">
-        <div class="mb-4">
-            <p class="text-sm">Version 1.0.0 | Last Updated: February 10, 2025</p>
-        </div>
-        <div class="mb-2">
-            <p class="font-semibold">Developed by <a href="https://krich-portfolio.pk-research.work" target="_blank" class="text-purple-600 dark:text-purple-400 hover:underline transition-all duration-300">พล.ท.ดร.กริช อินทราทิพย์</a></p>
-        </div>
-        <div class="text-xs text-gray-500 dark:text-gray-500">
-            <p>© 2025 Training Feedback Management System. All rights reserved.</p>
+    <footer class="app-footer animate-fadeIn">
+        <div class="container mx-auto px-4 max-w-7xl">
+            <p class="footer-version">Version 2.0.0 | Last Updated: February 10, 2026</p>
+            <p class="footer-dev">Developed by <a href="https://krich-portfolio.pk-research.work" target="_blank">พล.ท.ดร.กริช อินทราทิพย์</a></p>
+            <p class="footer-copy">© 2026 Training Feedback Management System. All rights reserved.</p>
         </div>
     </footer>
 

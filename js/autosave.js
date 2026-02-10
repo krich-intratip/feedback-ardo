@@ -13,7 +13,7 @@ let autoSaveConfig = {
 // ========================================
 // INITIALIZATION
 // ========================================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     loadAutoSaveConfig();
     restoreAutoSave();
     updateAutoSaveUI();
@@ -50,14 +50,12 @@ function updateAutoSaveUI() {
     if (!toggleBtn) return;
 
     if (autoSaveEnabled && directoryHandle) {
-        toggleBtn.classList.add('bg-green-500', 'text-white');
-        toggleBtn.classList.remove('bg-white', 'dark:bg-gray-800');
+        toggleBtn.classList.add('active');
         if (statusText) statusText.textContent = 'Auto-save: ON';
         if (statusMobile) statusMobile.textContent = 'ON';
         if (icon) icon.textContent = '💾';
     } else {
-        toggleBtn.classList.remove('bg-green-500', 'text-white');
-        toggleBtn.classList.add('bg-white', 'dark:bg-gray-800');
+        toggleBtn.classList.remove('active');
         if (statusText) statusText.textContent = 'Auto-save: OFF';
         if (statusMobile) statusMobile.textContent = 'OFF';
         if (icon) icon.textContent = '💾';

@@ -1,0 +1,336 @@
+/* ========================================
+   Custom Styles for Training Feedback System
+   ======================================== */
+
+/* Pastel Color Variables */
+:root {
+    --pastel-pink: #FFD6E8;
+    --pastel-blue: #C5E8FF;
+    --pastel-green: #D4F4DD;
+    --pastel-yellow: #FFF4CC;
+    --pastel-purple: #E8D6FF;
+    --pastel-orange: #FFE5CC;
+}
+
+.dark {
+    --pastel-pink: #4A3A42;
+    --pastel-blue: #2D3E50;
+    --pastel-green: #3A4D3F;
+    --pastel-yellow: #4D4A33;
+    --pastel-purple: #423A4D;
+    --pastel-orange: #4D3F33;
+}
+
+/* Smooth Transitions */
+* {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ========================================
+   Custom Scrollbar
+   ======================================== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #2d3748;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #4a5568;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slideIn {
+    animation: slideIn 0.3s ease-out;
+}
+
+.animate-scaleIn {
+    animation: scaleIn 0.3s ease-out;
+}
+
+.animate-pulse-once {
+    animation: pulse 0.5s ease-in-out;
+}
+
+/* ========================================
+   Rating Radio Buttons - Responsive
+   ======================================== */
+.rating-radio {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #cbd5e0;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+    .rating-radio {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+.rating-radio:hover {
+    border-color: #818cf8;
+    transform: scale(1.1);
+}
+
+.rating-radio:checked {
+    border-color: #818cf8;
+    background: linear-gradient(135deg, #818cf8, #a78bfa);
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+}
+
+.rating-radio:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.dark .rating-radio {
+    border-color: #4a5568;
+}
+
+.dark .rating-radio:checked {
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.3);
+}
+
+/* Rating Label - Responsive */
+.rating-label {
+    font-size: 13px;
+}
+
+@media (min-width: 640px) {
+    .rating-label {
+        font-size: 14px;
+    }
+}
+
+@media (min-width: 768px) {
+    .rating-label {
+        font-size: 15px;
+    }
+}
+
+/* ========================================
+   Card Hover Effects
+   ======================================== */
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.dark .card-hover:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   Button Effects
+   ======================================== */
+.btn-primary {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* ========================================
+   Tab Active Indicator
+   ======================================== */
+.tab-active {
+    position: relative;
+}
+
+.tab-active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #818cf8, #a78bfa);
+    border-radius: 2px;
+}
+
+/* ========================================
+   Loading Spinner
+   ======================================== */
+.spinner {
+    border: 3px solid rgba(129, 140, 248, 0.2);
+    border-top: 3px solid #818cf8;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 0.8s linear infinite;
+}
+
+/* ========================================
+   Toast Notification - Responsive
+   ======================================== */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 250px;
+    max-width: 90vw;
+    animation: slideIn 0.3s ease-out;
+}
+
+@media (min-width: 640px) {
+    .toast {
+        min-width: 300px;
+    }
+}
+
+/* ========================================
+   Auto-save Indicator
+   ======================================== */
+.autosave-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.autosave-indicator.show {
+    display: flex;
+}
+
+/* ========================================
+   Responsive Table
+   ======================================== */
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ========================================
+   Modal Styling
+   ======================================== */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-width: 56rem;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2rem;
+    animation: scaleIn 0.3s ease-out;
+}
+
+.dark .modal-content {
+    background: #1f2937;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+.hidden {
+    display: none !important;
+}
+
+.flex {
+    display: flex !important;
+}

@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบบันทึกความพึงพอใจในการฝึกอบรม</title>
-    <meta name="description" content="Training Feedback Management System - ระบบจัดการแบบประเมินความพึงพอใจในการฝึกอบรมแบบ Offline-first">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📊</text></svg>">
+    <meta name="description"
+        content="Training Feedback Management System - ระบบจัดการแบบประเมินความพึงพอใจในการฝึกอบรมแบบ Offline-first">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📊</text></svg>">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -34,6 +39,7 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
 
     <!-- Toast Container -->
@@ -52,70 +58,70 @@
 
     <!-- Sticky Navbar -->
     <nav id="navbar" class="navbar">
-        <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4 max-w-7xl">
-            <div class="flex justify-between items-center gap-3">
-                <!-- Logo / Title -->
-                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <span class="text-2xl sm:text-3xl animate-float">📊</span>
-                    <div class="min-w-0">
-                        <h1 class="navbar-title text-lg sm:text-xl md:text-2xl truncate">
-                            ระบบบันทึกความพึงพอใจ
-                        </h1>
-                        <p class="text-xs text-[var(--text-tertiary)] hidden sm:block">Training Feedback Management System</p>
-                    </div>
+        <div class="navbar-inner">
+            <!-- Logo / Title -->
+            <div class="navbar-brand">
+                <span class="navbar-logo animate-float">📊</span>
+                <div>
+                    <h1 class="navbar-title">ระบบบันทึกความพึงพอใจ</h1>
+                    <p class="navbar-subtitle">Training Feedback Management System</p>
                 </div>
+            </div>
 
-                <!-- Controls -->
-                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                    <!-- Auto-save Toggle -->
-                    <button onclick="toggleAutoSave()" id="autoSaveToggle" class="autosave-btn">
-                        <span id="autoSaveIcon">💾</span>
-                        <span class="hidden sm:inline" id="autoSaveStatus">Auto-save: OFF</span>
-                        <span class="sm:hidden" id="autoSaveStatusMobile">OFF</span>
-                    </button>
+            <!-- Controls -->
+            <div class="navbar-controls">
+                <!-- Auto-save Toggle -->
+                <button onclick="toggleAutoSave()" id="autoSaveToggle" class="autosave-btn">
+                    <span id="autoSaveIcon">💾</span>
+                    <span class="hidden sm:inline" id="autoSaveStatus">Auto-save: OFF</span>
+                    <span class="sm:hidden" id="autoSaveStatusMobile">OFF</span>
+                </button>
 
-                    <!-- Theme Toggle -->
-                    <button onclick="toggleTheme()" class="theme-toggle" aria-label="Toggle theme">
-                        <span class="dark:hidden icon" id="themeIconLight">🌙</span>
-                        <span class="hidden dark:inline icon" id="themeIconDark">☀️</span>
-                    </button>
-                </div>
+                <!-- Theme Toggle -->
+                <button onclick="toggleTheme()" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="dark:hidden icon" id="themeIconLight">🌙</span>
+                    <span class="hidden dark:inline icon" id="themeIconDark">☀️</span>
+                </button>
             </div>
         </div>
     </nav>
 
-    <!-- Main Container -->
-    <div class="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-7xl">
+    <!-- Main Content Wrapper -->
+    <main class="main-content">
 
         <!-- Tab Navigation -->
-        <nav class="mb-6 sm:mb-8 animate-fadeInUp delay-1">
+        <nav class="tab-wrapper animate-fadeInUp delay-1">
             <div class="tab-nav">
                 <button onclick="showTab('form')" id="tab-form" class="tab-button tab-active">
-                    <span class="hidden sm:inline">📝 กรอกแบบประเมิน</span>
-                    <span class="sm:hidden">📝 กรอก</span>
+                    <span class="tab-icon">📝</span>
+                    <span class="tab-label-full">กรอกแบบประเมิน</span>
+                    <span class="tab-label-short">กรอก</span>
                 </button>
                 <button onclick="showTab('list')" id="tab-list" class="tab-button">
-                    <span class="hidden sm:inline">📋 รายการผลประเมิน</span>
-                    <span class="sm:hidden">📋 รายการ</span>
+                    <span class="tab-icon">📋</span>
+                    <span class="tab-label-full">รายการผลประเมิน</span>
+                    <span class="tab-label-short">รายการ</span>
                 </button>
                 <button onclick="showTab('summary')" id="tab-summary" class="tab-button">
-                    <span class="hidden sm:inline">📈 สรุปผลประเมิน</span>
-                    <span class="sm:hidden">📈 สรุป</span>
+                    <span class="tab-icon">📈</span>
+                    <span class="tab-label-full">สรุปผลประเมิน</span>
+                    <span class="tab-label-short">สรุป</span>
                 </button>
             </div>
         </nav>
 
         <!-- Tab Content Container -->
-        <div id="content-area">
+        <div id="content-area" class="content-area">
             <!-- Content will be dynamically loaded here -->
         </div>
-    </div>
+    </main>
 
     <!-- Footer -->
-    <footer class="app-footer animate-fadeIn">
-        <div class="container mx-auto px-4 max-w-7xl">
+    <footer class="app-footer">
+        <div class="footer-inner">
             <p class="footer-version">Version 2.0.0 | Last Updated: February 10, 2026</p>
-            <p class="footer-dev">Developed by <a href="https://krich-portfolio.pk-research.work" target="_blank">พล.ท.ดร.กริช อินทราทิพย์</a></p>
+            <p class="footer-dev">Developed by <a href="https://krich-portfolio.pk-research.work"
+                    target="_blank">พล.ท.ดร.กริช อินทราทิพย์</a></p>
             <p class="footer-copy">© 2026 Training Feedback Management System. All rights reserved.</p>
         </div>
     </footer>
@@ -130,4 +136,5 @@
     <script src="js/autosave.js"></script>
 
 </body>
+
 </html>

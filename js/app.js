@@ -29,11 +29,15 @@ function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');
-    } else if (!savedTheme) {
-        // Detect system preference
+    } else if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+    } else {
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
             localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
         }
     }
 }
@@ -104,17 +108,14 @@ function scrollToTop() {
 // ========================================
 function showTab(tabName) {
     const contentArea = document.getElementById('content-area');
+    const activeBtn = document.getElementById(`tab-${tabName}`);
+    if (!contentArea || !activeBtn) return;
 
-    // Remove active from all buttons
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('tab-active');
     });
-
-    // Add active to selected tab
-    const activeBtn = document.getElementById(`tab-${tabName}`);
     activeBtn.classList.add('tab-active');
 
-    // Load content
     if (tabName === 'form') {
         contentArea.innerHTML = getFormHTML();
         setDefaultDate();
@@ -161,7 +162,8 @@ function initFormProgress() {
         // Count unique radio groups
         const radioGroups = new Set();
         form.querySelectorAll('input[type="radio"][required]').forEach(r => radioGroups.add(r.name));
-        const totalRequired = (requiredInputs.length - form.querySelectorAll('input[type="radio"][required]').length) + radioGroups.size;
+        const radioRequiredCount = form.querySelectorAll('input[type="radio"][required]').length;
+        const totalRequired = (requiredInputs.length - radioRequiredCount) + radioGroups.size;
 
         // Count filled radio groups
         let filledRadioGroups = 0;
@@ -208,10 +210,16 @@ function loadData() {
     const stored = localStorage.getItem('feedbackData');
     if (stored) {
         try {
-            feedbackData = JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                feedbackData = parsed.filter(item => item && typeof item === 'object');
+            } else {
+                feedbackData = [];
+            }
         } catch (e) {
+            console.error('Error loading feedbackData:', e);
             feedbackData = [];
-            showToast('ข้อผิดพลาดในการโหลดข้อมูล', 'error');
+            showToast('ข้อผิดพลาดในการโหลดข้อมูล (Reset)', 'error');
         }
     }
 }
@@ -233,8 +241,24 @@ function loadInstructors() {
     const stored = localStorage.getItem('instructorList');
     if (stored) {
         try {
-            instructorList = JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                // Migration: Convert strings to objects if necessary
+                instructorList = parsed.map(item => {
+                    if (typeof item === 'string') {
+                        return {
+                            id: generateUUID(),
+                            name: item,
+                            addedAt: new Date().toISOString()
+                        };
+                    }
+                    return item;
+                }).filter(item => item && typeof item === 'object' && item.name);
+            } else {
+                instructorList = [];
+            }
         } catch (e) {
+            console.error('Error loading instructorList:', e);
             instructorList = [];
         }
     }
@@ -283,9 +307,17 @@ function deleteInstructor(id) {
     const inst = instructorList.find(i => i.id === id);
     if (!inst) return;
 
+    // Check if instructor is used in any feedback records
+    const usageCount = feedbackData.filter(r => r.metadata && r.metadata.instructorName === inst.name).length;
+    let warningMsg = `คุณต้องการลบวิทยากร "${escapeHtml(inst.name)}" หรือไม่?`;
+
+    if (usageCount > 0) {
+        warningMsg += `<br><br><span class="text-red-500 font-bold">⚠️ คำเตือน:</span> วิทยากรท่านนี้มีผลประเมินอยู่ ${usageCount} รายการ การลบอาจทำให้การกรองข้อมูลในอนาคตไม่สมบูรณ์`;
+    }
+
     showConfirmModal(
         'ยืนยันการลบวิทยากร',
-        `คุณต้องการลบวิทยากร "${escapeHtml(inst.name)}" หรือไม่?`,
+        warningMsg,
         () => {
             instructorList = instructorList.filter(i => i.id !== id);
             if (saveInstructors()) {
@@ -322,57 +354,55 @@ function generateUUID() {
 // ========================================
 // FORM SUBMISSION
 // ========================================
+function parseRating(val) {
+    const n = parseInt(val, 10);
+    if (Number.isNaN(n) || n < 1 || n > 5) return 3;
+    return n;
+}
+
+function getFormRating(form, prefix, count) {
+    const arr = [];
+    for (let i = 1; i <= count; i++) {
+        const el = form[prefix + '_' + i];
+        arr.push(parseRating(el && el.value));
+    }
+    return arr;
+}
+
 function submitFeedback(event) {
     event.preventDefault();
 
     const form = event.target;
 
-    // Collect metadata
+    // Collect metadata (guard missing elements)
     const metadata = {
-        courseName: form.courseName.value.trim(),
-        trainingDate: form.trainingDate.value,
-        location: form.location.value.trim(),
-        batch: form.batch.value.trim(),
-        department: form.department.value.trim(),
-        instructorName: form.instructorName ? form.instructorName.value.trim() : ''
+        courseName: (form.courseName && form.courseName.value || '').trim(),
+        trainingDate: (form.trainingDate && form.trainingDate.value) || new Date().toISOString().split('T')[0],
+        location: (form.location && form.location.value || '').trim(),
+        batch: (form.batch && form.batch.value || '').trim(),
+        department: (form.department && form.department.value || '').trim(),
+        instructorName: (form.instructorName && form.instructorName.value || '').trim()
     };
 
-    // Collect ratings
+    if (!metadata.courseName || !metadata.location) {
+        showToast('กรุณากรอกชื่อหลักสูตรและสถานที่', 'warning');
+        return;
+    }
+
+    // Collect ratings (safe parse 1-5)
     const ratings = {
-        instructor: [
-            parseInt(form.instructor_1.value),
-            parseInt(form.instructor_2.value),
-            parseInt(form.instructor_3.value),
-            parseInt(form.instructor_4.value)
-        ],
-        content: [
-            parseInt(form.content_1.value),
-            parseInt(form.content_2.value),
-            parseInt(form.content_3.value),
-            parseInt(form.content_4.value)
-        ],
-        venue: [
-            parseInt(form.venue_1.value),
-            parseInt(form.venue_2.value),
-            parseInt(form.venue_3.value)
-        ],
-        catering: [
-            parseInt(form.catering_1.value),
-            parseInt(form.catering_2.value),
-            parseInt(form.catering_3.value)
-        ],
-        benefit: [
-            parseInt(form.benefit_1.value),
-            parseInt(form.benefit_2.value),
-            parseInt(form.benefit_3.value)
-        ]
+        instructor: getFormRating(form, 'instructor', 4),
+        content: getFormRating(form, 'content', 4),
+        venue: getFormRating(form, 'venue', 3),
+        catering: getFormRating(form, 'catering', 3),
+        benefit: getFormRating(form, 'benefit', 3)
     };
 
     // Collect open-ended
     const openEnded = {
-        strengths: form.strengths.value.trim(),
-        suggestions: form.suggestions.value.trim(),
-        futureTopics: form.futureTopics.value.trim()
+        strengths: (form.strengths && form.strengths.value || '').trim(),
+        suggestions: (form.suggestions && form.suggestions.value || '').trim(),
+        futureTopics: (form.futureTopics && form.futureTopics.value || '').trim()
     };
 
     // Create record
@@ -473,9 +503,9 @@ function getFormHTML() {
                         <select name="instructorName" required class="form-input">
                             <option value="">-- เลือกวิทยากร --</option>
                             ${instructorList
-                                .sort((a, b) => a.name.localeCompare(b.name, 'th'))
-                                .map(inst => `<option value="${escapeHtml(inst.name)}">${escapeHtml(inst.name)}</option>`)
-                                .join('')}
+                .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+                .map(inst => `<option value="${escapeHtml(inst.name)}">${escapeHtml(inst.name)}</option>`)
+                .join('')}
                         </select>
                     ` : `
                         <div class="text-sm p-3 rounded-lg" style="background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2);">
@@ -488,10 +518,10 @@ function getFormHTML() {
                 <!-- Instructor Rating Questions -->
                 <div class="space-y-3">
                     ${['วิทยากรมีความรู้และประสบการณ์ในเนื้อหาที่สอน',
-                       'วิทยากรสามารถถ่ายทอดความรู้ได้ชัดเจนและเข้าใจง่าย',
-                       'วิทยากรมีปฏิสัมพันธ์กับผู้เข้าอบรมและตอบคำถามได้ดี',
-                       'วิทยากรมีบุคลิกภาพและท่วงทีที่เหมาะสม'
-                    ].map((question, index) => `
+            'วิทยากรสามารถถ่ายทอดความรู้ได้ชัดเจนและเข้าใจง่าย',
+            'วิทยากรมีปฏิสัมพันธ์กับผู้เข้าอบรมและตอบคำถามได้ดี',
+            'วิทยากรมีบุคลิกภาพและท่วงทีที่เหมาะสม'
+        ].map((question, index) => `
                         <div class="question-card">
                             <p class="text-sm sm:text-base font-medium mb-3" style="color: var(--text-primary)">${index + 1}. ${question}</p>
                             <div class="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -512,29 +542,29 @@ function getFormHTML() {
             </div>
 
             ${getRatingSection('content', '📚 เนื้อหาและการจัดการอบรม', [
-        'เนื้อหามีความเหมาะสมและตรงกับความต้องการ',
-        'เนื้อหามีความทันสมัยและสามารถนำไปใช้ได้จริง',
-        'กิจกรรมและแบบฝึกหัดมีความเหมาะสม',
-        'ระยะเวลาในการอบรมมีความเหมาะสม'
-    ], 3)}
+            'เนื้อหามีความเหมาะสมและตรงกับความต้องการ',
+            'เนื้อหามีความทันสมัยและสามารถนำไปใช้ได้จริง',
+            'กิจกรรมและแบบฝึกหัดมีความเหมาะสม',
+            'ระยะเวลาในการอบรมมีความเหมาะสม'
+        ], 3)}
 
             ${getRatingSection('venue', '🏢 สถานที่และสิ่งอำนวยความสะดวก', [
-        'ห้องอบรมมีขนาดเหมาะสมและสะอาด',
-        'อุปกรณ์การเรียนรู้มีความพร้อมและเพียงพอ',
-        'สิ่งอำนวยความสะดวกโดยรวมมีความเหมาะสม'
-    ], 4)}
+            'ห้องอบรมมีขนาดเหมาะสมและสะอาด',
+            'อุปกรณ์การเรียนรู้มีความพร้อมและเพียงพอ',
+            'สิ่งอำนวยความสะดวกโดยรวมมีความเหมาะสม'
+        ], 4)}
 
             ${getRatingSection('catering', '🍽️ อาหารและเครื่องดื่ม', [
-        'อาหารมีรสชาติดีและความหลากหลาย',
-        'ปริมาณอาหารมีความเหมาะสม',
-        'เครื่องดื่มและของว่างมีความเหมาะสม'
-    ], 5)}
+            'อาหารมีรสชาติดีและความหลากหลาย',
+            'ปริมาณอาหารมีความเหมาะสม',
+            'เครื่องดื่มและของว่างมีความเหมาะสม'
+        ], 5)}
 
             ${getRatingSection('benefit', '💡 ประโยชน์และการนำไปใช้', [
-        'ความรู้ที่ได้สามารถนำไปใช้ในการทำงานได้',
-        'การอบรมช่วยพัฒนาทักษะที่จำเป็นต่อการทำงาน',
-        'โดยรวมแล้วมีความพึงพอใจต่อการอบรมครั้งนี้'
-    ], 6)}
+            'ความรู้ที่ได้สามารถนำไปใช้ในการทำงานได้',
+            'การอบรมช่วยพัฒนาทักษะที่จำเป็นต่อการทำงาน',
+            'โดยรวมแล้วมีความพึงพอใจต่อการอบรมครั้งนี้'
+        ], 6)}
 
             <!-- Open-ended Questions -->
             <div class="section-card animate-fadeInUp delay-6">
@@ -670,21 +700,20 @@ function renderRecordsList() {
     }
 
     tbody.innerHTML = feedbackData
+        .filter(record => record && record.metadata && record.ratings)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map(record => {
             const avgScore = calculateAverageScore(record.ratings);
-            const createdDate = new Date(record.createdAt).toLocaleString('th-TH', {
+            const createdDate = new Date(record.createdAt || 0).toLocaleString('th-TH', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
-            const trainingDate = new Date(record.metadata.trainingDate).toLocaleDateString('th-TH', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
+            const trainingDate = record.metadata.trainingDate
+                ? new Date(record.metadata.trainingDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+                : '-';
 
             return `
                 <tr>
@@ -714,14 +743,16 @@ function renderRecordsList() {
 }
 
 function calculateAverageScore(ratings) {
+    if (!ratings || typeof ratings !== 'object') return 0;
     const allScores = [
-        ...ratings.instructor,
-        ...ratings.content,
-        ...ratings.venue,
-        ...ratings.catering,
-        ...ratings.benefit
+        ...(ratings.instructor || []),
+        ...(ratings.content || []),
+        ...(ratings.venue || []),
+        ...(ratings.catering || []),
+        ...(ratings.benefit || [])
     ];
-    return allScores.reduce((sum, score) => sum + score, 0) / allScores.length;
+    if (allScores.length === 0) return 0;
+    return allScores.reduce((sum, score) => sum + (Number(score) || 0), 0) / allScores.length;
 }
 
 function getScoreClass(score) {
@@ -733,7 +764,7 @@ function getScoreClass(score) {
 
 function viewRecord(id) {
     const record = feedbackData.find(r => r.id === id);
-    if (!record) return;
+    if (!record || !record.metadata || !record.ratings || !record.openEnded) return;
 
     const createdDate = new Date(record.createdAt).toLocaleString('th-TH', {
         year: 'numeric',
@@ -810,7 +841,8 @@ function viewRecord(id) {
 }
 
 function calculateCategoryAverage(scores) {
-    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    if (!Array.isArray(scores) || scores.length === 0) return 0;
+    return scores.reduce((sum, score) => sum + (Number(score) || 0), 0) / scores.length;
 }
 
 function closeModal() {
@@ -869,12 +901,12 @@ function renderInstructorsList() {
     container.innerHTML = `
         <div class="space-y-2">
             ${instructorList
-                .sort((a, b) => a.name.localeCompare(b.name, 'th'))
-                .map((inst, index) => {
-                    const addedDate = new Date(inst.addedAt).toLocaleDateString('th-TH', {
-                        year: 'numeric', month: 'short', day: 'numeric'
-                    });
-                    return `
+            .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+            .map((inst, index) => {
+                const addedDate = new Date(inst.addedAt).toLocaleDateString('th-TH', {
+                    year: 'numeric', month: 'short', day: 'numeric'
+                });
+                return `
                         <div class="instructor-row animate-fadeInUp" style="animation-delay: ${index * 40}ms">
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold" style="color: var(--text-primary)">${escapeHtml(inst.name)}</p>
@@ -885,7 +917,7 @@ function renderInstructorsList() {
                             </button>
                         </div>
                     `;
-                }).join('')}
+            }).join('')}
         </div>
     `;
 }
@@ -920,8 +952,8 @@ function getSummaryHTML() {
                 <select id="instructorFilter" onchange="filterSummaryByInstructor()" class="form-input" style="max-width: 300px;">
                     <option value="">ทั้งหมด (รวมทุกวิทยากร)</option>
                     ${uniqueInstructors.map(name =>
-                        `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
-                    ).join('')}
+        `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+    ).join('')}
                 </select>
             </div>
         </div>
@@ -1016,11 +1048,14 @@ function renderSummary(instructorFilter = '') {
         : feedbackData;
 
     if (filteredData.length === 0) {
-        document.getElementById('stat-total').textContent = '0';
-        document.getElementById('stat-avg').textContent = '0.00';
-        document.getElementById('stat-max').textContent = '0.00';
-        document.getElementById('stat-min').textContent = '0.00';
-        // Clear charts
+        const totalEl = document.getElementById('stat-total');
+        const avgEl = document.getElementById('stat-avg');
+        const maxEl = document.getElementById('stat-max');
+        const minEl = document.getElementById('stat-min');
+        if (totalEl) totalEl.textContent = '0';
+        if (avgEl) avgEl.textContent = '0.00';
+        if (maxEl) maxEl.textContent = '0.00';
+        if (minEl) minEl.textContent = '0.00';
         if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
         if (radarChartInstance) { radarChartInstance.destroy(); radarChartInstance = null; }
         return;
@@ -1039,17 +1074,18 @@ function renderSummary(instructorFilter = '') {
     const maxEl = document.getElementById('stat-max');
     const minEl = document.getElementById('stat-min');
 
-    animateValue(totalEl, 0, total, 800);
-    animateValue(avgEl, 0, avg, 1000, true);
-    animateValue(maxEl, 0, max, 1000, true);
-    animateValue(minEl, 0, min, 1000, true);
+    if (totalEl) animateValue(totalEl, 0, total, 800);
+    if (avgEl) animateValue(avgEl, 0, avg, 1000, true);
+    if (maxEl) animateValue(maxEl, 0, max, 1000, true);
+    if (minEl) animateValue(minEl, 0, min, 1000, true);
 
     // Render charts
     renderCharts(filteredData);
 }
 
 function renderCharts(data) {
-    const chartData = data || feedbackData;
+    const raw = data || feedbackData;
+    const chartData = raw.filter(r => r && r.ratings && typeof r.ratings === 'object');
     if (chartData.length === 0) return;
 
     const isDark = document.documentElement.classList.contains('dark');
@@ -1207,40 +1243,57 @@ function renderCharts(data) {
 // ========================================
 // GOOGLE SHEETS INTEGRATION
 // ========================================
+function isRecordValidForSheets(record) {
+    return record &&
+        record.metadata && typeof record.metadata === 'object' &&
+        record.ratings && typeof record.ratings === 'object' &&
+        record.openEnded && typeof record.openEnded === 'object' &&
+        (record.metadata.courseName != null || record.metadata.location != null);
+}
+
 async function sendToGoogleSheets(record) {
     if (!GOOGLE_SHEETS_URL) return;
+    if (!isRecordValidForSheets(record)) {
+        console.warn('sendToGoogleSheets: record invalid, skip');
+        return;
+    }
 
     try {
         const avgScore = calculateAverageScore(record.ratings);
         const payload = {
             type: 'feedback',
-            timestamp: record.createdAt,
-            id: record.id,
-            courseName: record.metadata.courseName,
-            trainingDate: record.metadata.trainingDate,
-            location: record.metadata.location,
-            batch: record.metadata.batch || '',
-            department: record.metadata.department || '',
-            instructorName: record.metadata.instructorName || '',
-            instructor: record.ratings.instructor,
-            content: record.ratings.content,
-            venue: record.ratings.venue,
-            catering: record.ratings.catering,
-            benefit: record.ratings.benefit,
-            avgScore: avgScore.toFixed(2),
-            strengths: record.openEnded.strengths || '',
-            suggestions: record.openEnded.suggestions || '',
-            futureTopics: record.openEnded.futureTopics || ''
+            timestamp: record.createdAt || new Date().toISOString(),
+            id: record.id || '',
+            courseName: (record.metadata.courseName || '').toString(),
+            trainingDate: (record.metadata.trainingDate || '').toString(),
+            location: (record.metadata.location || '').toString(),
+            batch: (record.metadata.batch || '').toString(),
+            department: (record.metadata.department || '').toString(),
+            instructorName: (record.metadata.instructorName || '').toString(),
+            instructor: Array.isArray(record.ratings.instructor) ? record.ratings.instructor : [],
+            content: Array.isArray(record.ratings.content) ? record.ratings.content : [],
+            venue: Array.isArray(record.ratings.venue) ? record.ratings.venue : [],
+            catering: Array.isArray(record.ratings.catering) ? record.ratings.catering : [],
+            benefit: Array.isArray(record.ratings.benefit) ? record.ratings.benefit : [],
+            avgScore: Number.isFinite(avgScore) ? avgScore.toFixed(2) : '0.00',
+            strengths: (record.openEnded.strengths != null ? String(record.openEnded.strengths) : ''),
+            suggestions: (record.openEnded.suggestions != null ? String(record.openEnded.suggestions) : ''),
+            futureTopics: (record.openEnded.futureTopics != null ? String(record.openEnded.futureTopics) : '')
         };
 
         const response = await fetch(GOOGLE_SHEETS_URL, {
             method: 'POST',
             redirect: 'follow',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        if (response.ok || response.type === 'opaque') {
+        if (response.ok) {
             showToast('ส่งข้อมูลไปยัง Google Sheets สำเร็จ', 'success');
+        } else if (response.type !== 'opaque') {
+            const text = await response.text();
+            console.error('Google Sheets response:', response.status, text);
+            showToast('ส่ง Google Sheets ไม่สำเร็จ (ข้อมูลบันทึกในเครื่องแล้ว)', 'warning');
         }
     } catch (error) {
         console.error('Google Sheets error:', error);
@@ -1254,12 +1307,17 @@ async function syncInstructorsToSheets() {
     try {
         const payload = {
             type: 'syncInstructors',
-            instructors: instructorList
+            instructors: Array.isArray(instructorList) ? instructorList.map(inst => ({
+                id: inst.id,
+                name: (inst.name != null ? String(inst.name) : ''),
+                addedAt: inst.addedAt || new Date().toISOString()
+            })) : []
         };
 
         await fetch(GOOGLE_SHEETS_URL, {
             method: 'POST',
             redirect: 'follow',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
     } catch (error) {
@@ -1320,7 +1378,17 @@ function generateCSVContent() {
         'คะแนนเฉลี่ย', 'จุดเด่น', 'ข้อเสนอแนะ', 'หัวข้อในอนาคต'
     ];
 
-    const rows = feedbackData.map(record => {
+    function csvEscape(val) {
+        if (val == null) return '';
+        const s = String(val);
+        if (/[",\r\n]/.test(s) || /^[=+\-@]/.test(s)) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+    }
+
+    const validRecords = feedbackData.filter(r => r && r.metadata && r.ratings && r.openEnded);
+    const rows = validRecords.map(record => {
         const avgScore = calculateAverageScore(record.ratings);
         return [
             new Date(record.createdAt).toLocaleString('th-TH'),
@@ -1336,13 +1404,52 @@ function generateCSVContent() {
             ...record.ratings.catering,
             ...record.ratings.benefit,
             avgScore.toFixed(2),
-            `"${(record.openEnded.strengths || '').replace(/"/g, '""')}"`,
-            `"${(record.openEnded.suggestions || '').replace(/"/g, '""')}"`,
-            `"${(record.openEnded.futureTopics || '').replace(/"/g, '""')}"`
+            record.openEnded.strengths || '',
+            record.openEnded.suggestions || '',
+            record.openEnded.futureTopics || ''
         ];
     });
 
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
+    return [headers, ...rows].map(row => row.map(cell => csvEscape(cell)).join(',')).join('\n');
+}
+
+function normalizeImportedRecord(record) {
+    if (!record || typeof record !== 'object') return null;
+    const id = record.id || generateUUID();
+    const meta = record.metadata && typeof record.metadata === 'object' ? record.metadata : {};
+    const ratings = record.ratings && typeof record.ratings === 'object' ? record.ratings : {};
+    const open = record.openEnded && typeof record.openEnded === 'object' ? record.openEnded : {};
+    const ensureScores = (arr, len, def = 3) => {
+        if (!Array.isArray(arr)) arr = [];
+        const out = arr.slice(0, len).map(v => (v >= 1 && v <= 5 ? Number(v) : def));
+        while (out.length < len) out.push(def);
+        return out;
+    };
+    if (!meta.courseName && !meta.location) return null;
+    return {
+        id,
+        createdAt: record.createdAt || new Date().toISOString(),
+        metadata: {
+            courseName: meta.courseName || '-',
+            trainingDate: meta.trainingDate || new Date().toISOString().split('T')[0],
+            location: meta.location || '-',
+            batch: meta.batch || '',
+            department: meta.department || '',
+            instructorName: meta.instructorName || ''
+        },
+        ratings: {
+            instructor: ensureScores(ratings.instructor, 4),
+            content: ensureScores(ratings.content, 4),
+            venue: ensureScores(ratings.venue, 3),
+            catering: ensureScores(ratings.catering, 3),
+            benefit: ensureScores(ratings.benefit, 3)
+        },
+        openEnded: {
+            strengths: (open.strengths != null ? String(open.strengths) : ''),
+            suggestions: (open.suggestions != null ? String(open.suggestions) : ''),
+            futureTopics: (open.futureTopics != null ? String(open.futureTopics) : '')
+        }
+    };
 }
 
 function importJSON(event) {
@@ -1354,51 +1461,59 @@ function importJSON(event) {
         try {
             const imported = JSON.parse(e.target.result);
             if (!Array.isArray(imported)) {
-                showToast('รูปแบบไฟล์ไม่ถูกต้อง', 'error');
+                showToast('รูปแบบไฟล์ไม่ถูกต้อง (ต้องเป็น Array)', 'error');
                 return;
             }
 
-            // Validate and merge
-            const validRecords = imported.filter(record =>
-                record.id && record.metadata && record.ratings && record.openEnded
-            );
+            const normalized = [];
+            let skipped = 0;
+            for (let i = 0; i < imported.length; i++) {
+                const rec = normalizeImportedRecord(imported[i]);
+                if (rec) normalized.push(rec);
+                else skipped++;
+            }
 
-            if (validRecords.length === 0) {
-                showToast('ไม่พบข้อมูลที่ถูกต้องในไฟล์', 'error');
+            if (normalized.length === 0) {
+                showToast('ไม่พบข้อมูลที่นำเข้าได้ในไฟล์', 'error');
                 return;
             }
 
-            // Merge without duplicates
             const existingIds = new Set(feedbackData.map(r => r.id));
-            const newRecords = validRecords.filter(r => !existingIds.has(r.id));
+            const newRecords = normalized.filter(r => !existingIds.has(r.id));
+            const duplicateCount = normalized.length - newRecords.length;
 
             feedbackData.push(...newRecords);
             if (saveData()) {
                 showTab('list');
-                showToast(`Import สำเร็จ ${newRecords.length} รายการ`, 'success');
+                let msg = `Import สำเร็จ ${newRecords.length} รายการ`;
+                if (duplicateCount > 0) msg += ` (ข้าม ${duplicateCount} รายการซ้ำ)`;
+                if (skipped > 0) msg += ` (ข้าม ${skipped} รายการที่ไม่ถูกต้อง)`;
+                showToast(msg, 'success');
             }
-
         } catch (error) {
-            showToast('เกิดข้อผิดพลาดในการอ่านไฟล์', 'error');
+            console.error('Import error:', error);
+            showToast('เกิดข้อผิดพลาดในการอ่านไฟล์ (ตรวจสอบรูปแบบ JSON)', 'error');
         }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
 
-    // Reset input
     event.target.value = '';
 }
 
 // ========================================
 // TOAST NOTIFICATIONS
 // ========================================
+const TOAST_MAX = 5;
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
-    const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️'
-    };
+    if (!container) return;
+
+    while (container.children.length >= TOAST_MAX) {
+        container.firstChild.remove();
+    }
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
     const colors = {
         success: 'linear-gradient(135deg, #10b981, #059669)',
         error: 'linear-gradient(135deg, #ef4444, #dc2626)',
@@ -1408,11 +1523,11 @@ function showToast(message, type = 'info') {
 
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.style.background = colors[type];
+    toast.style.background = colors[type] || colors.info;
     toast.innerHTML = `
         <div class="toast-body">
-            <span style="font-size: 1.25rem;">${icons[type]}</span>
-            <span>${message}</span>
+            <span style="font-size: 1.25rem;">${icons[type] || icons.info}</span>
+            <span>${escapeHtml(message)}</span>
         </div>
         <div class="toast-progress"></div>
     `;
@@ -1432,8 +1547,8 @@ function showConfirmModal(title, message, onConfirm) {
     const modalHTML = `
         <div class="modal-backdrop" onclick="closeModal()">
             <div class="modal-content" style="max-width: 28rem;" onclick="event.stopPropagation()">
-                <h2 class="section-title" style="font-size: 1.15rem;">${title}</h2>
-                <p class="mb-6 text-sm" style="color: var(--text-secondary)">${message}</p>
+                <h2 class="section-title" style="font-size: 1.15rem;">${escapeHtml(title)}</h2>
+                <div class="mb-6 text-sm" style="color: var(--text-secondary)">${message}</div>
                 <div class="flex justify-end gap-3">
                     <button onclick="closeModal()" class="btn-secondary" style="background: var(--bg-surface-hover); color: var(--text-primary); border: 1px solid var(--border-default);">
                         ยกเลิก

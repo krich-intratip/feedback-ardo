@@ -65,9 +65,15 @@ function updateAutoSaveUI() {
 // ========================================
 // TOGGLE AUTO-SAVE
 // ========================================
+function safeToast(message, type) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    }
+}
+
 async function toggleAutoSave() {
     if (!('showDirectoryPicker' in window)) {
-        showToast('เบราว์เซอร์ของคุณไม่รองรับ Auto-save', 'error');
+        safeToast('เบราว์เซอร์ของคุณไม่รองรับ Auto-save', 'error');
         return;
     }
 
@@ -79,9 +85,8 @@ async function toggleAutoSave() {
         autoSaveConfig.directoryName = null;
         saveAutoSaveConfig();
         updateAutoSaveUI();
-        showToast('ปิด Auto-save แล้ว', 'info');
+        safeToast('ปิด Auto-save แล้ว', 'info');
     } else {
-        // Enable auto-save - request directory
         try {
             directoryHandle = await window.showDirectoryPicker({
                 mode: 'readwrite',
@@ -94,13 +99,13 @@ async function toggleAutoSave() {
             saveAutoSaveConfig();
             updateAutoSaveUI();
 
-            showToast(`เปิด Auto-save: ${directoryHandle.name}`, 'success');
+            safeToast(`เปิด Auto-save: ${directoryHandle.name}`, 'success');
         } catch (error) {
             if (error.name === 'AbortError') {
-                showToast('ยกเลิกการเลือกโฟลเดอร์', 'info');
+                safeToast('ยกเลิกการเลือกโฟลเดอร์', 'info');
             } else {
                 console.error('Directory picker error:', error);
-                showToast('ไม่สามารถเข้าถึงโฟลเดอร์ได้', 'error');
+                safeToast('ไม่สามารถเข้าถึงโฟลเดอร์ได้', 'error');
             }
         }
     }
@@ -122,14 +127,13 @@ async function autoSaveToCSV(record) {
             autoSaveConfig.enabled = false;
             saveAutoSaveConfig();
             updateAutoSaveUI();
-            showToast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์', 'error');
+            safeToast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์', 'error');
             return;
         }
 
-        // Check if generateCSVContent function exists
         if (typeof window.generateCSVContent !== 'function') {
             console.error('generateCSVContent function not found');
-            showToast('เกิดข้อผิดพลาดในการสร้าง CSV', 'error');
+            safeToast('เกิดข้อผิดพลาดในการสร้าง CSV', 'error');
             return;
         }
 
@@ -160,9 +164,9 @@ async function autoSaveToCSV(record) {
             autoSaveConfig.enabled = false;
             saveAutoSaveConfig();
             updateAutoSaveUI();
-            showToast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์', 'error');
+            safeToast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์', 'error');
         } else {
-            showToast('Auto-save ล้มเหลว', 'error');
+            safeToast('Auto-save ล้มเหลว', 'error');
         }
     }
 }
@@ -170,19 +174,19 @@ async function autoSaveToCSV(record) {
 // ========================================
 // VERIFY DIRECTORY PERMISSION
 // ========================================
-async function verifyPermission(directoryHandle) {
+async function verifyPermission(handle) {
+    if (!handle) return false;
     const options = { mode: 'readwrite' };
-
-    // Check if permission already granted
-    if ((await directoryHandle.queryPermission(options)) === 'granted') {
-        return true;
+    try {
+        if ((await handle.queryPermission(options)) === 'granted') {
+            return true;
+        }
+        if ((await handle.requestPermission(options)) === 'granted') {
+            return true;
+        }
+    } catch (err) {
+        console.warn('verifyPermission error:', err);
     }
-
-    // Request permission
-    if ((await directoryHandle.requestPermission(options)) === 'granted') {
-        return true;
-    }
-
     return false;
 }
 
@@ -211,13 +215,13 @@ function restoreAutoSave() {
         return;
     }
 
-    // Try to restore directory handle (not possible with current API)
-    // User must re-select directory after page reload
-    // This is a limitation of the File System Access API for security
-
-    // Reset to off state
+    // File System Access API does not persist directory handle across reloads.
+    // User must re-select directory after page reload.
     autoSaveEnabled = false;
     directoryHandle = null;
+    autoSaveConfig.enabled = false;
+    autoSaveConfig.directoryName = null;
+    saveAutoSaveConfig();
     updateAutoSaveUI();
 }
 

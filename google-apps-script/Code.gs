@@ -141,11 +141,14 @@ function handleSyncInstructors(ss, data) {
 function handleGetInstructors(ss) {
   var sheet = ss.getSheetByName('Instructors');
 
-  if (!sheet || sheet.getLastRow() <= 1) {
+  if (!sheet) {
     return jsonResponse({ success: true, instructors: [] });
   }
-
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return jsonResponse({ success: true, instructors: [] });
+  }
+  var data = sheet.getRange(2, 1, lastRow, 2).getValues();
   var instructors = data.map(function(row) {
     return { name: row[0], addedAt: row[1] };
   });

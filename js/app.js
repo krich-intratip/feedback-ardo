@@ -1,17 +1,22 @@
 // ========================================
 // Training Feedback Management System
-// Main Application - Version 2.0.0
+// Main Application - Version 2.1.0
 // ========================================
 
 let feedbackData = [];
+let instructorList = [];
 let barChartInstance = null;
 let radarChartInstance = null;
+
+// Google Sheets Web App URL (paste your deployed Apps Script URL here)
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycby_BJ3I65HUP62R1wCeNTuOdi3ZDBJr10gLBL-bWjoUkEXsa0rlcBeGF2KdQgZIo_jG/exec';
 
 // ========================================
 // INITIALIZATION
 // ========================================
 document.addEventListener('DOMContentLoaded', function () {
     loadData();
+    loadInstructors();
     initTheme();
     showTab('form');
     initScrollEffects();
@@ -120,6 +125,9 @@ function showTab(tabName) {
     } else if (tabName === 'summary') {
         contentArea.innerHTML = getSummaryHTML();
         renderSummary();
+    } else if (tabName === 'instructors') {
+        contentArea.innerHTML = getInstructorsHTML();
+        renderInstructorsList();
     }
 }
 
@@ -162,7 +170,7 @@ function initFormProgress() {
         });
 
         let filledText = 0;
-        form.querySelectorAll('input[type="text"][required], input[type="date"][required]').forEach(input => {
+        form.querySelectorAll('input[type="text"][required], input[type="date"][required], select[required]').forEach(input => {
             if (input.value.trim()) filledText++;
         });
 
@@ -218,6 +226,77 @@ function saveData() {
     }
 }
 
+// ========================================
+// INSTRUCTOR DATA MANAGEMENT
+// ========================================
+function loadInstructors() {
+    const stored = localStorage.getItem('instructorList');
+    if (stored) {
+        try {
+            instructorList = JSON.parse(stored);
+        } catch (e) {
+            instructorList = [];
+        }
+    }
+}
+
+function saveInstructors() {
+    try {
+        localStorage.setItem('instructorList', JSON.stringify(instructorList));
+        return true;
+    } catch (e) {
+        showToast('ไม่สามารถบันทึกรายชื่อวิทยากรได้', 'error');
+        return false;
+    }
+}
+
+function addInstructor(event) {
+    event.preventDefault();
+    const input = document.getElementById('newInstructorName');
+    const name = input.value.trim();
+
+    if (!name) {
+        showToast('กรุณาระบุชื่อวิทยากร', 'warning');
+        return;
+    }
+
+    if (instructorList.some(inst => inst.name === name)) {
+        showToast('ชื่อวิทยากรนี้มีอยู่แล้ว', 'warning');
+        return;
+    }
+
+    instructorList.push({
+        id: generateUUID(),
+        name: name,
+        addedAt: new Date().toISOString()
+    });
+
+    if (saveInstructors()) {
+        showToast(`เพิ่มวิทยากร "${name}" สำเร็จ`, 'success');
+        input.value = '';
+        renderInstructorsList();
+        syncInstructorsToSheets();
+    }
+}
+
+function deleteInstructor(id) {
+    const inst = instructorList.find(i => i.id === id);
+    if (!inst) return;
+
+    showConfirmModal(
+        'ยืนยันการลบวิทยากร',
+        `คุณต้องการลบวิทยากร "${escapeHtml(inst.name)}" หรือไม่?`,
+        () => {
+            instructorList = instructorList.filter(i => i.id !== id);
+            if (saveInstructors()) {
+                showToast('ลบวิทยากรสำเร็จ', 'success');
+                renderInstructorsList();
+                syncInstructorsToSheets();
+            }
+        }
+    );
+}
+
 function deleteRecord(id) {
     showConfirmModal(
         'ยืนยันการลบ',
@@ -254,7 +333,8 @@ function submitFeedback(event) {
         trainingDate: form.trainingDate.value,
         location: form.location.value.trim(),
         batch: form.batch.value.trim(),
-        department: form.department.value.trim()
+        department: form.department.value.trim(),
+        instructorName: form.instructorName ? form.instructorName.value.trim() : ''
     };
 
     // Collect ratings
@@ -320,6 +400,11 @@ function submitFeedback(event) {
             });
         }
 
+        // Send to Google Sheets (async, non-blocking)
+        sendToGoogleSheets(record).catch(err => {
+            console.error('Google Sheets sync error:', err);
+        });
+
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -377,13 +462,54 @@ function getFormHTML() {
                 </div>
             </div>
 
-            <!-- Rating Sections -->
-            ${getRatingSection('instructor', '👨‍🏫 วิทยากร', [
-        'วิทยากรมีความรู้และประสบการณ์ในเนื้อหาที่สอน',
-        'วิทยากรสามารถถ่ายทอดความรู้ได้ชัดเจนและเข้าใจง่าย',
-        'วิทยากรมีปฏิสัมพันธ์กับผู้เข้าอบรมและตอบคำถามได้ดี',
-        'วิทยากรมีบุคลิกภาพและท่วงทีที่เหมาะสม'
-    ], 2)}
+            <!-- Instructor Selection + Rating -->
+            <div class="section-card animate-fadeInUp delay-2">
+                <h2 class="section-title">👨‍🏫 วิทยากร</h2>
+
+                <!-- Instructor Name Dropdown -->
+                <div class="mb-4">
+                    <label class="form-label">ชื่อวิทยากร <span class="text-red-500">*</span></label>
+                    ${instructorList.length > 0 ? `
+                        <select name="instructorName" required class="form-input">
+                            <option value="">-- เลือกวิทยากร --</option>
+                            ${instructorList
+                                .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+                                .map(inst => `<option value="${escapeHtml(inst.name)}">${escapeHtml(inst.name)}</option>`)
+                                .join('')}
+                        </select>
+                    ` : `
+                        <div class="text-sm p-3 rounded-lg" style="background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2);">
+                            ⚠️ ยังไม่มีรายชื่อวิทยากร กรุณาเพิ่มรายชื่อที่แท็บ "จัดการวิทยากร" ก่อน
+                        </div>
+                        <input type="hidden" name="instructorName" value="">
+                    `}
+                </div>
+
+                <!-- Instructor Rating Questions -->
+                <div class="space-y-3">
+                    ${['วิทยากรมีความรู้และประสบการณ์ในเนื้อหาที่สอน',
+                       'วิทยากรสามารถถ่ายทอดความรู้ได้ชัดเจนและเข้าใจง่าย',
+                       'วิทยากรมีปฏิสัมพันธ์กับผู้เข้าอบรมและตอบคำถามได้ดี',
+                       'วิทยากรมีบุคลิกภาพและท่วงทีที่เหมาะสม'
+                    ].map((question, index) => `
+                        <div class="question-card">
+                            <p class="text-sm sm:text-base font-medium mb-3" style="color: var(--text-primary)">${index + 1}. ${question}</p>
+                            <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+                                ${[1, 2, 3, 4, 5].map(rating => `
+                                    <label class="flex items-center gap-1.5 sm:gap-2 cursor-pointer">
+                                        <input type="radio" name="instructor_${index + 1}" value="${rating}" required class="rating-radio">
+                                        <span class="rating-label">${rating}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                            <div class="mt-2 flex justify-between text-[11px]" style="color: var(--text-tertiary)">
+                                <span>น้อยที่สุด</span>
+                                <span>มากที่สุด</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
 
             ${getRatingSection('content', '📚 เนื้อหาและการจัดการอบรม', [
         'เนื้อหามีความเหมาะสมและตรงกับความต้องการ',
@@ -508,6 +634,7 @@ function getListHTML() {
                     <tr>
                         <th>วันที่บันทึก</th>
                         <th>ชื่อหลักสูตร</th>
+                        <th>วิทยากร</th>
                         <th>วันที่อบรม</th>
                         <th>สถานที่</th>
                         <th style="text-align: center;">คะแนนเฉลี่ย</th>
@@ -530,7 +657,7 @@ function renderRecordsList() {
     if (feedbackData.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6">
+                <td colspan="7">
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
                         <p class="empty-state-title">ยังไม่มีข้อมูล</p>
@@ -563,6 +690,7 @@ function renderRecordsList() {
                 <tr>
                     <td>${escapeHtml(createdDate)}</td>
                     <td><strong>${escapeHtml(record.metadata.courseName)}</strong></td>
+                    <td>${escapeHtml(record.metadata.instructorName || '-')}</td>
                     <td>${escapeHtml(trainingDate)}</td>
                     <td>${escapeHtml(record.metadata.location)}</td>
                     <td style="text-align: center;">
@@ -641,6 +769,7 @@ function viewRecord(id) {
                             <p><strong>สถานที่:</strong> ${escapeHtml(record.metadata.location)}</p>
                             <p><strong>รุ่น:</strong> ${escapeHtml(record.metadata.batch) || '-'}</p>
                             <p><strong>หน่วยงาน:</strong> ${escapeHtml(record.metadata.department) || '-'}</p>
+                            <p><strong>วิทยากร:</strong> ${escapeHtml(record.metadata.instructorName) || '-'}</p>
                             <p><strong>วันที่บันทึก:</strong> ${escapeHtml(createdDate)}</p>
                         </div>
                     </div>
@@ -689,11 +818,115 @@ function closeModal() {
 }
 
 // ========================================
+// INSTRUCTOR MANAGEMENT HTML TEMPLATE
+// ========================================
+function getInstructorsHTML() {
+    return `
+    <div class="card animate-fadeInUp">
+        <h2 class="section-title">👨‍🏫 จัดการรายชื่อวิทยากร</h2>
+
+        <!-- Add Instructor Form -->
+        <div class="section-card animate-fadeInUp delay-1 mb-6">
+            <h3 class="text-sm font-bold mb-3" style="color: var(--text-primary)">เพิ่มวิทยากรใหม่</h3>
+            <form onsubmit="addInstructor(event)" class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="newInstructorName" class="form-input flex-1"
+                       placeholder="ระบุชื่อ-นามสกุลวิทยากร" required>
+                <button type="submit" class="btn-secondary" style="background: linear-gradient(135deg, #10b981, #059669); color: white; white-space: nowrap;">
+                    ➕ เพิ่มวิทยากร
+                </button>
+            </form>
+        </div>
+
+        <!-- Instructor List -->
+        <div class="section-card animate-fadeInUp delay-2">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold" style="color: var(--text-primary)">รายชื่อวิทยากรทั้งหมด</h3>
+                <span class="text-xs font-semibold" style="color: var(--text-tertiary)">${instructorList.length} คน</span>
+            </div>
+            <div id="instructorsListContainer">
+                <!-- Instructor list will be rendered here -->
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+function renderInstructorsList() {
+    const container = document.getElementById('instructorsListContainer');
+    if (!container) return;
+
+    if (instructorList.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 2rem 1rem;">
+                <div class="empty-state-icon" style="font-size: 2.5rem;">👨‍🏫</div>
+                <p class="empty-state-title">ยังไม่มีรายชื่อวิทยากร</p>
+                <p class="empty-state-text">กรุณาเพิ่มรายชื่อวิทยากรด้านบน</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="space-y-2">
+            ${instructorList
+                .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+                .map((inst, index) => {
+                    const addedDate = new Date(inst.addedAt).toLocaleDateString('th-TH', {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                    });
+                    return `
+                        <div class="instructor-row animate-fadeInUp" style="animation-delay: ${index * 40}ms">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold" style="color: var(--text-primary)">${escapeHtml(inst.name)}</p>
+                                <p class="text-xs" style="color: var(--text-tertiary)">เพิ่มเมื่อ ${escapeHtml(addedDate)}</p>
+                            </div>
+                            <button onclick="deleteInstructor('${escapeHtml(inst.id)}')" class="btn-action btn-delete">
+                                🗑️ ลบ
+                            </button>
+                        </div>
+                    `;
+                }).join('')}
+        </div>
+    `;
+}
+
+// ========================================
 // SUMMARY HTML TEMPLATE
 // ========================================
+function getUniqueInstructors() {
+    const names = new Set();
+    feedbackData.forEach(record => {
+        if (record.metadata && record.metadata.instructorName) {
+            names.add(record.metadata.instructorName);
+        }
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'th'));
+}
+
+function filterSummaryByInstructor() {
+    const selected = document.getElementById('instructorFilter').value;
+    renderSummary(selected);
+}
+
 function getSummaryHTML() {
+    const uniqueInstructors = getUniqueInstructors();
     return `
     <div class="space-y-6 animate-fadeInUp">
+        <!-- Instructor Filter -->
+        ${uniqueInstructors.length > 0 ? `
+        <div class="card animate-fadeInUp">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <label class="form-label" style="margin-bottom: 0; white-space: nowrap; flex-shrink: 0;">🔍 กรองตามวิทยากร:</label>
+                <select id="instructorFilter" onchange="filterSummaryByInstructor()" class="form-input" style="max-width: 300px;">
+                    <option value="">ทั้งหมด (รวมทุกวิทยากร)</option>
+                    ${uniqueInstructors.map(name =>
+                        `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+                    ).join('')}
+                </select>
+            </div>
+        </div>
+        ` : ''}
+
         <!-- Statistics Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="stat-card card-hover animate-fadeInUp delay-1" style="background: linear-gradient(135deg, #7c5cfc, #6d3ef2); color: white;">
@@ -777,18 +1010,25 @@ function animateValue(element, start, end, duration, isFloat = false) {
     requestAnimationFrame(update);
 }
 
-function renderSummary() {
-    if (feedbackData.length === 0) {
+function renderSummary(instructorFilter = '') {
+    const filteredData = instructorFilter
+        ? feedbackData.filter(r => r.metadata && r.metadata.instructorName === instructorFilter)
+        : feedbackData;
+
+    if (filteredData.length === 0) {
         document.getElementById('stat-total').textContent = '0';
         document.getElementById('stat-avg').textContent = '0.00';
         document.getElementById('stat-max').textContent = '0.00';
         document.getElementById('stat-min').textContent = '0.00';
+        // Clear charts
+        if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+        if (radarChartInstance) { radarChartInstance.destroy(); radarChartInstance = null; }
         return;
     }
 
     // Calculate statistics
-    const scores = feedbackData.map(record => calculateAverageScore(record.ratings));
-    const total = feedbackData.length;
+    const scores = filteredData.map(record => calculateAverageScore(record.ratings));
+    const total = filteredData.length;
     const avg = scores.reduce((sum, score) => sum + score, 0) / total;
     const max = Math.max(...scores);
     const min = Math.min(...scores);
@@ -805,11 +1045,12 @@ function renderSummary() {
     animateValue(minEl, 0, min, 1000, true);
 
     // Render charts
-    renderCharts();
+    renderCharts(filteredData);
 }
 
-function renderCharts() {
-    if (feedbackData.length === 0) return;
+function renderCharts(data) {
+    const chartData = data || feedbackData;
+    if (chartData.length === 0) return;
 
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#475569';
@@ -824,7 +1065,7 @@ function renderCharts() {
         'ประโยชน์': []
     };
 
-    feedbackData.forEach(record => {
+    chartData.forEach(record => {
         categories['วิทยากร'].push(calculateCategoryAverage(record.ratings.instructor));
         categories['เนื้อหา'].push(calculateCategoryAverage(record.ratings.content));
         categories['สถานที่'].push(calculateCategoryAverage(record.ratings.venue));
@@ -964,6 +1205,69 @@ function renderCharts() {
 }
 
 // ========================================
+// GOOGLE SHEETS INTEGRATION
+// ========================================
+async function sendToGoogleSheets(record) {
+    if (!GOOGLE_SHEETS_URL) return;
+
+    try {
+        const avgScore = calculateAverageScore(record.ratings);
+        const payload = {
+            type: 'feedback',
+            timestamp: record.createdAt,
+            id: record.id,
+            courseName: record.metadata.courseName,
+            trainingDate: record.metadata.trainingDate,
+            location: record.metadata.location,
+            batch: record.metadata.batch || '',
+            department: record.metadata.department || '',
+            instructorName: record.metadata.instructorName || '',
+            instructor: record.ratings.instructor,
+            content: record.ratings.content,
+            venue: record.ratings.venue,
+            catering: record.ratings.catering,
+            benefit: record.ratings.benefit,
+            avgScore: avgScore.toFixed(2),
+            strengths: record.openEnded.strengths || '',
+            suggestions: record.openEnded.suggestions || '',
+            futureTopics: record.openEnded.futureTopics || ''
+        };
+
+        const response = await fetch(GOOGLE_SHEETS_URL, {
+            method: 'POST',
+            redirect: 'follow',
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok || response.type === 'opaque') {
+            showToast('ส่งข้อมูลไปยัง Google Sheets สำเร็จ', 'success');
+        }
+    } catch (error) {
+        console.error('Google Sheets error:', error);
+        showToast('ไม่สามารถส่งข้อมูลไปยัง Google Sheets ได้ (ข้อมูลบันทึกในเครื่องแล้ว)', 'warning');
+    }
+}
+
+async function syncInstructorsToSheets() {
+    if (!GOOGLE_SHEETS_URL) return;
+
+    try {
+        const payload = {
+            type: 'syncInstructors',
+            instructors: instructorList
+        };
+
+        await fetch(GOOGLE_SHEETS_URL, {
+            method: 'POST',
+            redirect: 'follow',
+            body: JSON.stringify(payload)
+        });
+    } catch (error) {
+        console.error('Instructor sync error:', error);
+    }
+}
+
+// ========================================
 // EXPORT / IMPORT FUNCTIONS
 // ========================================
 function exportJSON() {
@@ -1007,7 +1311,7 @@ function exportCSV() {
 
 function generateCSVContent() {
     const headers = [
-        'วันที่บันทึก', 'ชื่อหลักสูตร', 'วันที่อบรม', 'สถานที่', 'รุ่น', 'หน่วยงาน',
+        'วันที่บันทึก', 'ชื่อหลักสูตร', 'วันที่อบรม', 'สถานที่', 'รุ่น', 'หน่วยงาน', 'ชื่อวิทยากร',
         'วิทยากร_1', 'วิทยากร_2', 'วิทยากร_3', 'วิทยากร_4',
         'เนื้อหา_1', 'เนื้อหา_2', 'เนื้อหา_3', 'เนื้อหา_4',
         'สถานที่_1', 'สถานที่_2', 'สถานที่_3',
@@ -1025,6 +1329,7 @@ function generateCSVContent() {
             record.metadata.location,
             record.metadata.batch || '',
             record.metadata.department || '',
+            record.metadata.instructorName || '',
             ...record.ratings.instructor,
             ...record.ratings.content,
             ...record.ratings.venue,
@@ -1164,3 +1469,6 @@ window.importJSON = importJSON;
 window.generateCSVContent = generateCSVContent;
 window.showToast = showToast;
 window.scrollToTop = scrollToTop;
+window.addInstructor = addInstructor;
+window.deleteInstructor = deleteInstructor;
+window.filterSummaryByInstructor = filterSummaryByInstructor;

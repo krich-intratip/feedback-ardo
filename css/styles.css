@@ -1,5 +1,5 @@
 /* ========================================
-   Training Feedback System v2.0.0
+   Training Feedback System v2.1.0
    Professional Design System
    ======================================== */
 
@@ -1569,6 +1569,35 @@ label:hover .rating-label {
 .theme-transitioning *::before,
 .theme-transitioning *::after {
     transition-duration: 500ms !important;
+}
+
+/* ========================================
+   Instructor Row
+   ======================================== */
+.instructor-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    transition: all var(--transition-fast);
+}
+
+.instructor-row:hover {
+    border-color: var(--primary-200);
+    box-shadow: var(--shadow-sm);
+}
+
+.dark .instructor-row:hover {
+    border-color: rgba(124, 92, 252, 0.2);
+}
+
+@media (min-width: 640px) {
+    .instructor-row {
+        padding: 14px 20px;
+    }
 }
 
 /* ========================================

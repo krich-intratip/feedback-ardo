@@ -569,6 +569,12 @@ body {
     animation: iconRotate 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Theme icon visibility */
+.theme-icon-light { display: inline; }
+.theme-icon-dark { display: none; }
+.dark .theme-icon-light { display: none; }
+.dark .theme-icon-dark { display: inline; }
+
 /* ========================================
    Tab Navigation
    ======================================== */

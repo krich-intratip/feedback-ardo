@@ -147,17 +147,6 @@ function initFormProgress() {
 
     const updateProgress = () => {
         const requiredInputs = form.querySelectorAll('[required]');
-        let filled = 0;
-        requiredInputs.forEach(input => {
-            if (input.type === 'radio') {
-                const name = input.name;
-                if (form.querySelector(`input[name="${name}"]:checked`)) {
-                    filled++;
-                }
-            } else if (input.value.trim()) {
-                filled++;
-            }
-        });
 
         // Count unique radio groups
         const radioGroups = new Set();
@@ -1084,9 +1073,13 @@ function renderSummary(instructorFilter = '') {
 }
 
 function renderCharts(data) {
-    const raw = data || feedbackData;
+    const raw = Array.isArray(data) ? data : feedbackData;
     const chartData = raw.filter(r => r && r.ratings && typeof r.ratings === 'object');
-    if (chartData.length === 0) return;
+    if (chartData.length === 0) {
+        if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+        if (radarChartInstance) { radarChartInstance.destroy(); radarChartInstance = null; }
+        return;
+    }
 
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#475569';
@@ -1281,20 +1274,13 @@ async function sendToGoogleSheets(record) {
             futureTopics: (record.openEnded.futureTopics != null ? String(record.openEnded.futureTopics) : '')
         };
 
-        const response = await fetch(GOOGLE_SHEETS_URL, {
+        await fetch(GOOGLE_SHEETS_URL, {
             method: 'POST',
+            mode: 'no-cors',
             redirect: 'follow',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-
-        if (response.ok) {
-            showToast('ส่งข้อมูลไปยัง Google Sheets สำเร็จ', 'success');
-        } else if (response.type !== 'opaque') {
-            const text = await response.text();
-            console.error('Google Sheets response:', response.status, text);
-            showToast('ส่ง Google Sheets ไม่สำเร็จ (ข้อมูลบันทึกในเครื่องแล้ว)', 'warning');
-        }
+        showToast('ส่งข้อมูลไปยัง Google Sheets แล้ว', 'success');
     } catch (error) {
         console.error('Google Sheets error:', error);
         showToast('ไม่สามารถส่งข้อมูลไปยัง Google Sheets ได้ (ข้อมูลบันทึกในเครื่องแล้ว)', 'warning');
@@ -1316,8 +1302,8 @@ async function syncInstructorsToSheets() {
 
         await fetch(GOOGLE_SHEETS_URL, {
             method: 'POST',
+            mode: 'no-cors',
             redirect: 'follow',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
     } catch (error) {

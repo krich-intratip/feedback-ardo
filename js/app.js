@@ -1110,7 +1110,7 @@ function renderCharts(data) {
     });
 
     const labels = Object.keys(categories);
-    const data = labels.map(label => {
+    const avgScores = labels.map(label => {
         const scores = categories[label];
         return scores.reduce((sum, score) => sum + score, 0) / scores.length;
     });
@@ -1135,7 +1135,7 @@ function renderCharts(data) {
             labels: labels,
             datasets: [{
                 label: 'คะแนนเฉลี่ย',
-                data: data,
+                data: avgScores,
                 backgroundColor: chartColors.map(c => c.bg),
                 borderColor: chartColors.map(c => c.border),
                 borderWidth: 2,
@@ -1191,7 +1191,7 @@ function renderCharts(data) {
             labels: labels,
             datasets: [{
                 label: 'คะแนนเฉลี่ย',
-                data: data,
+                data: avgScores,
                 backgroundColor: isDark ? 'rgba(124, 92, 252, 0.2)' : 'rgba(124, 92, 252, 0.15)',
                 borderColor: 'rgba(124, 92, 252, 1)',
                 borderWidth: 2,

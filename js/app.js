@@ -1003,7 +1003,103 @@ function getSummaryHTML() {
                 <canvas id="radarChart"></canvas>
             </div>
         </div>
+
+        <!-- Instructor Comparison Table -->
+        ${getInstructorComparisonHTML()}
     </div>
+    `;
+}
+
+// ========================================
+// INSTRUCTOR COMPARISON TABLE
+// ========================================
+function getInstructorComparisonHTML() {
+    const uniqueInstructors = getUniqueInstructors();
+    if (uniqueInstructors.length === 0) return '';
+
+    // Build per-instructor stats
+    const instructorStats = uniqueInstructors.map(name => {
+        const records = feedbackData.filter(r => r.metadata && r.metadata.instructorName === name);
+        const count = records.length;
+        if (count === 0) return null;
+
+        const catAvg = {
+            instructor: 0, content: 0, venue: 0, catering: 0, benefit: 0
+        };
+        records.forEach(r => {
+            catAvg.instructor += calculateCategoryAverage(r.ratings.instructor);
+            catAvg.content += calculateCategoryAverage(r.ratings.content);
+            catAvg.venue += calculateCategoryAverage(r.ratings.venue);
+            catAvg.catering += calculateCategoryAverage(r.ratings.catering);
+            catAvg.benefit += calculateCategoryAverage(r.ratings.benefit);
+        });
+        Object.keys(catAvg).forEach(k => { catAvg[k] = catAvg[k] / count; });
+
+        const overallScores = records.map(r => calculateAverageScore(r.ratings));
+        const overall = overallScores.reduce((s, v) => s + v, 0) / count;
+
+        return { name, count, catAvg, overall };
+    }).filter(Boolean).sort((a, b) => b.overall - a.overall);
+
+    if (instructorStats.length === 0) return '';
+
+    // Desktop table
+    const tableRows = instructorStats.map((s, i) => `
+        <tr>
+            <td class="ict-rank">${i + 1}</td>
+            <td class="ict-name">${escapeHtml(s.name)}</td>
+            <td class="ict-count">${s.count}</td>
+            <td class="ict-score">${s.catAvg.instructor.toFixed(2)}</td>
+            <td class="ict-score">${s.catAvg.content.toFixed(2)}</td>
+            <td class="ict-score">${s.catAvg.venue.toFixed(2)}</td>
+            <td class="ict-score">${s.catAvg.catering.toFixed(2)}</td>
+            <td class="ict-score">${s.catAvg.benefit.toFixed(2)}</td>
+            <td class="ict-overall"><span class="score-badge ${getScoreClass(s.overall)}">${s.overall.toFixed(2)}</span></td>
+        </tr>
+    `).join('');
+
+    // Mobile cards
+    const mobileCards = instructorStats.map((s, i) => `
+        <div class="ict-card">
+            <div class="ict-card-header">
+                <span class="ict-card-rank">#${i + 1}</span>
+                <span class="ict-card-name">${escapeHtml(s.name)}</span>
+                <span class="score-badge ${getScoreClass(s.overall)}">${s.overall.toFixed(2)}</span>
+            </div>
+            <div class="ict-card-body">
+                <div class="ict-card-stat"><span>📋 ผลประเมิน</span><span>${s.count} รายการ</span></div>
+                <div class="ict-card-stat"><span>👨‍🏫 วิทยากร</span><span>${s.catAvg.instructor.toFixed(2)}</span></div>
+                <div class="ict-card-stat"><span>📚 เนื้อหา</span><span>${s.catAvg.content.toFixed(2)}</span></div>
+                <div class="ict-card-stat"><span>🏢 สถานที่</span><span>${s.catAvg.venue.toFixed(2)}</span></div>
+                <div class="ict-card-stat"><span>🍽️ อาหาร</span><span>${s.catAvg.catering.toFixed(2)}</span></div>
+                <div class="ict-card-stat"><span>💡 ประโยชน์</span><span>${s.catAvg.benefit.toFixed(2)}</span></div>
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="chart-card animate-fadeInUp delay-6">
+            <h3 class="chart-title">👨‍🏫 ผลประเมินแยกรายวิทยากร</h3>
+            <div class="ict-table-wrap">
+                <table class="instructor-compare-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>วิทยากร</th>
+                            <th>จำนวน</th>
+                            <th>👨‍🏫 วิทยากร</th>
+                            <th>📚 เนื้อหา</th>
+                            <th>🏢 สถานที่</th>
+                            <th>🍽️ อาหาร</th>
+                            <th>💡 ประโยชน์</th>
+                            <th>เฉลี่ยรวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+            <div class="ict-mobile-cards">${mobileCards}</div>
+        </div>
     `;
 }
 

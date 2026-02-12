@@ -1607,6 +1607,156 @@ label:hover .rating-label {
 }
 
 /* ========================================
+   Instructor Comparison Table
+   ======================================== */
+.ict-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.instructor-compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+}
+
+.instructor-compare-table thead th {
+    background: var(--primary-50);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--primary-200);
+}
+
+.dark .instructor-compare-table thead th {
+    background: rgba(124, 92, 252, 0.1);
+    border-bottom-color: rgba(124, 92, 252, 0.3);
+}
+
+.instructor-compare-table thead th:first-child {
+    border-radius: var(--radius-lg) 0 0 0;
+}
+
+.instructor-compare-table thead th:last-child {
+    border-radius: 0 var(--radius-lg) 0 0;
+}
+
+.instructor-compare-table tbody td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-default);
+    color: var(--text-secondary);
+}
+
+.instructor-compare-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.instructor-compare-table tbody tr:hover td {
+    background: var(--bg-surface-hover);
+}
+
+.ict-rank {
+    font-weight: 700;
+    color: var(--primary-500) !important;
+    width: 40px;
+}
+
+.ict-name {
+    text-align: left !important;
+    font-weight: 600;
+    color: var(--text-primary) !important;
+    white-space: nowrap;
+}
+
+.ict-count {
+    font-weight: 600;
+}
+
+.ict-score {
+    font-variant-numeric: tabular-nums;
+}
+
+.ict-overall {
+    font-weight: 700;
+}
+
+/* Mobile cards - hidden on desktop */
+.ict-mobile-cards {
+    display: none;
+}
+
+.ict-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: all var(--transition-fast);
+}
+
+.ict-card:hover {
+    border-color: var(--primary-200);
+    box-shadow: var(--shadow-sm);
+}
+
+.dark .ict-card:hover {
+    border-color: rgba(124, 92, 252, 0.2);
+}
+
+.ict-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.ict-card-rank {
+    font-weight: 700;
+    color: var(--primary-500);
+    font-size: 0.875rem;
+    min-width: 28px;
+}
+
+.ict-card-name {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ict-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+}
+
+.ict-card-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 3px 0;
+}
+
+.ict-card-stat span:last-child {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Responsive: mobile shows cards, desktop shows table */
+@media (max-width: 768px) {
+    .ict-table-wrap {
+        display: none;
+    }
+    .ict-mobile-cards {
+        display: block;
+    }
+}
+
+/* ========================================
    Spinner
    ======================================== */
 .spinner {
